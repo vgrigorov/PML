@@ -1,0 +1,84 @@
+---
+title: "Practical Machine Learning Assignment Writeup"
+author: "Vladislav Grigorov"
+date: "Wednesday, January 21, 2015"
+output: html_document
+---
+
+++Practical Machine Learning Assignment Writeup
+
+This is an R Markdown document generated for the Practical Machine Learning Corsera course assignment by Vladislav Grigorov. The overall objective is to apply common machine learning techniques and the caret package in R for classification. The datasets used in the assignemnt are as follows:
+
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
++ Data Loading
+
+I start off by loading in the data from the CSV files downloaded from the above links. I do this with the code below:
+
+```{r}
+setwd("C:/Users/v.grigorov/Desktop/assignment")
+
+#load the two CSV files
+pml.training <- read.csv("C:/Users/v.grigorov/Desktop/assignment/pml-training.csv")
+pml.testing <- read.csv("C:/Users/v.grigorov/Desktop/assignment/pml-testing.csv")
+```
+
++ Preprocessing
+
+I've spent significant amount of time trying to figure out why my prediction does not generate a vector of the same lenght of the original dataframe. The simple reason was NA values. With this knowledge in mind, I decided to remove all columns with NA values. This turned out to be different columns for pml.training and pml.testing data sets, and therefore I finally decided I will remove the same columns that I need to remove from the test dataset also from the training, so that I have the same structure and number of predictors in them.
+
+I do this with the following piece of code:
+```{r}
+#remove unnecessary columns (NAs)
+pml.training <- pml.training[, colSums(is.na(pml.testing)) == 0]
+pml.testing <- pml.testing[, colSums(is.na(pml.testing)) == 0]
+```
+
+After removing the NA-containing predictors I was left with 60 variables in both datasets, and I continued with sub-dividing pml.training dataset into a training and testing subsets. My intention was to train the model on the trainng subset, then use it to make a prediction on the test subset and then assess the accuracy via a simple confusion matrix. To get reproducible results, I set the seed first. I followed the rule of thumb to use 70% of data for training and 30% for testing (subsamples are taken only out of the pml.training dataset):
+
+```{r}
+#subpartition the training set to have a meaningful estimate of accuracy
+library(caret)
+set.seed(12345)
+inTrain<-createDataPartition(y=pml.training$classe, p=0.7, list=FALSE)
+subtrain<-pml.training[inTrain,]
+subtest<-pml.training[-inTrain,]
+```
+
++ Fitting the model and predicting on the testing subset
+
+Fitting the model itself was the simplest part. I used the train function of the caret package with default parameters for the random forest model - one line of code:
+
+```{r}
+#fit the model
+modFit<-train(classe~., data=subtrain, model="rf")
+```
+I generated some summary information to check the generated model and then proceeded to prediction.
+```{r}
+modFit
+```
+I had very high prediction accuracy on the training subset, but wondered if that would be the case on the test subset also. Above is the output summary for the fitted model.
+
+Then in order to assess the OOB accuracy, I made a prediction using the fitted model object on the testing subset, and generated the confusion matrix:
+```{r}
+#make the prediction on testing subset to estimate accuracy
+pred<-predict(modFit, subtest)
+table(pred,  subtest$classe)
+```
+The confusion matrix confirmed the high accuracy also. In the results above there was only one case out of the total sample of 5885 observations, when the prediction was wrong, which was impressive. This same accuracy of 99.9% I sould expect when doing the prediction on the given pml.testing dataset.
+
++ Final prediction on the unseen pml.testing dataset
+So I proceeded to making the final prediction using my model.
+
+```{r}
+#make the actual prediction on the provided test dataset
+actual.pred<-predict(modFit, pml.testing)
+actual.pred
+```
+The results of the prediction as you could see from the results above finally turned outto be all A-s:
